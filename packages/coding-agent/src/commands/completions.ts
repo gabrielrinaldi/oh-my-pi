@@ -54,7 +54,13 @@ export default class Completions extends Command {
 			return;
 		}
 
-		await Bun.write(Bun.stdout, await generateLiveCompletion(shell));
+		// Bun.write on inherited stdout corrupts append-mode files on Linux (#9071).
+		const { promise, resolve, reject } = Promise.withResolvers<void>();
+		process.stdout.write(await generateLiveCompletion(shell), error => {
+			if (error) reject(error);
+			else resolve();
+		});
+		await promise;
 		await postmortem.quit(0);
 	}
 }
